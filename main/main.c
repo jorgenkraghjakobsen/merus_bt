@@ -1,4 +1,4 @@
-/* Mayht Bluetooth Audio Streaming
+/* Merus Bluetooth Audio Streaming
 
    Written by Jørgen Kragh Jakobsen
    Infineon Merus Digital Audio
