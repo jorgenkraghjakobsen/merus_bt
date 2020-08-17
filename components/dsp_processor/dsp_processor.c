@@ -26,7 +26,7 @@ void setup_dsp_i2s(uint32_t sample_rate)
     .sample_rate = 44100,
     .bits_per_sample = 32,
     .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,                             //2-channels
-    .communication_format = I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB,
+    .communication_format = I2S_COMM_FORMAT_STAND_I2S, 
     .dma_buf_count = 8, 
     .dma_buf_len = 512,
     .use_apll = true,
@@ -43,6 +43,7 @@ void setup_dsp_i2s(uint32_t sample_rate)
     .data_out_num = CONFIG_I2S_DATA_PIN,
     .data_in_num = -1                                                       //Not used
   };
+  printf("%d %d %d\n",CONFIG_I2S_BCK_PIN,CONFIG_I2S_LRCK_PIN,CONFIG_I2S_DATA_PIN);
 
   i2s_set_pin(0, &pin_config0);
   gpio_set_drive_capability(CONFIG_I2S_BCK_PIN,0);
