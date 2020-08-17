@@ -1,0 +1,18 @@
+menu "Merus Audio Bluetooth Demo"
+   config I2S_BCK_PIN
+        int "I2S BCK pin"
+        default 27
+        help
+            GPIO for Audio clock
+   config I2S_LRCK_PIN
+        int "I2S LRCK pin"
+        default 25
+        help
+            GPIO for left/rigth clock
+   config I2S_DATA_PIN
+        int "I2S DATA pin"
+        default 22
+        help
+            GPIO for audio data pin 
+
+endmenu
