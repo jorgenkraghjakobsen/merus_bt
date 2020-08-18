@@ -3,7 +3,7 @@
 This design shows how easy a full featured Bluetooth audio streaming application can be build 
 using the ESP32 and a multilevel classD amp. 
 
-###System
+### System
 The design used Bluedroid aka the Android bluetooth stack for audio streaming and application control. 
 The Bluetooth A2DP and SPP protocols are used. A2DP for audio streaming, meta media info, playback control 
 and volume. SPP is used for appliction control - channel volume and mute in the audio processor in the MA12070P 
@@ -16,15 +16,15 @@ your will have god play back time.
 The amplifier changes modes of operation, swiching frequency and modulation mode based on the input level to 
 keep high effeicency over a large dynamic range.
 
-###System hookup 
+### System hookup 
 ```
 Power supply : 20V powertool battery 
-ESP32 module : TTgo T7-v1.4 Wrower based module in small form factor - has PSRAM for audio buffers that is need when WIFI 
-               audio streaming will be needed
+ESP32 module : TTgo T7-v1.4 Wrower based module in small form factor - has PSRAM for audio buffers 
+               that is need when WIFI audio streaming is used 
 MA12070P     : Small from factor 2 x 80W, PVDD 15-25Volt 2xBTL or PBTL mode
 ```
 
-###The amplifier module only needs the following control signals:
+### The amplifier module only needs the following control signals:
 ```
 I2S for audio interface : 
   I2S_BCK and MCLK : Bit clock 2.784 MHz for 32bits 44.1KHz sample 
@@ -54,9 +54,8 @@ SD0    CLK                         15  ENABLE
 ```
 The repo push the following pin configs - but can be changed using make menuconfig system 
 
+### SPP app control 
 
-
-SPP app control 
 
 
 
