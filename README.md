@@ -1,8 +1,9 @@
-# Bluetooth audio streaming with Infineon MA12070P multilevel class D amp 
-
+# Bluetooth audio streaming with Infineon MA12070P multilevel classD audio amplifier
+##
 This design shows how easy a full featured Bluetooth audio streaming application can be build 
 using the ESP32 and a multilevel classD amp. 
 
+###System
 The design used Bluedroid aka the Android bluetooth stack for audio streaming and application control. 
 The Bluetooth A2DP and SPP protocols are used. A2DP for audio streaming, meta media info, playback control 
 and volume. SPP is used for appliction control - channel volume and mute in the audio processor in the MA12070P 
@@ -15,16 +16,16 @@ your will have god play back time.
 The amplifier changes modes of operation, swiching frequency and modulation mode based on the input level to 
 keep high effeicency over a large dynamic range.
 
-System hookup 
-'''
+###System hookup 
+```
 Power supply : 20V powertool battery 
 ESP32 module : TTgo T7-v1.4 Wrower based module in small form factor - has PSRAM for audio buffers that is need when WIFI 
                audio streaming will be needed
 MA12070P     : Small from factor 2 x 80W, PVDD 15-25Volt 2xBTL or PBTL mode
-'''
+```
 
-The amplifier module only needs the following control signals:
-'''
+###The amplifier module only needs the following control signals:
+```
 I2S for audio interface : 
   I2S_BCK and MCLK : Bit clock 2.784 MHz for 32bits 44.1KHz sample 
   I2S_WS           : The left/right framing signal 
@@ -34,7 +35,7 @@ I2C for internal register control (Hardwired to address 0x20)
   I2C_SDA          : Data
 Static control signal  
   Nenable          : Pulled to ground from the ESP32 at startup 
-'''
+```
 
 ```
 ESP32 TTgo T7-v1.4                   Merus Audio MA12070P 
