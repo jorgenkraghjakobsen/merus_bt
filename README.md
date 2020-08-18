@@ -2,6 +2,11 @@
 
 
 
+
+
+
+
+```
 ESP32 TTgo T7-v1.4                   Merus Audio MA12070P 
 
 TX0    GND                         27  I2S_BCK
@@ -15,4 +20,7 @@ GND    0pu                         22  I2C_SCL
 15pu   SD1                             GND   
 SD0    CLK                         15  ENABLE  
                                    nc  MUTE 
+```
+
+
 
