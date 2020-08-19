@@ -52,10 +52,8 @@ GND    0pu                         22  I2C_SCL
 SD0    CLK                         15  ENABLE  
                                    nc  MUTE 
 ```
-The repo push the following pin configs - but can be changed using make menuconfig system 
+The repo is setup with the following pin configs - but can be changed using make menuconfig system 
 
 ### SPP app control 
-
-
 
 
