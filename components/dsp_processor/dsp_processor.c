@@ -26,7 +26,7 @@ void setup_dsp_i2s(uint32_t sample_rate)
     .sample_rate = 44100,
     .bits_per_sample = 32,
     .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,                             //2-channels
-    .communication_format = I2S_COMM_FORMAT_STAND_I2S, 
+    .communication_format = I2S_COMM_FORMAT_I2S, 
     .dma_buf_count = 8, 
     .dma_buf_len = 512,
     .use_apll = true,
