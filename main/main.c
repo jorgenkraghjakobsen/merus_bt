@@ -57,9 +57,10 @@ void app_main(void)
     
     dsp_i2s_task_init(44100);
 
-    dspFlow = dspfStereo; //dspfBiamp;
+    dspFlow = dspfDynBass; //dspfBiamp;
     dsp_setup_flow(200.0);
-    
+    dsp_setup_dynbass(200.0, 9.0, 0.707);
+
     prot_queue = xQueueCreate(10, sizeof(uint8_t *) );
     xTaskCreatePinnedToCore(protocolHandlerTask, "prot_handler_task", 2*1024, NULL, 5, NULL,0);
     

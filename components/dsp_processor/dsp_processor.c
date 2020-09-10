@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <math.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -78,11 +79,17 @@ static void dsp_i2s_task_handler(void *arg)
         { ESP_LOGI("I2S", "Chunk :%d",chunk_size);
         }
         uint8_t *data_ptr = audio;
-
+        float prescale0 = 1/sqrtf(pow(10, bq[4].gain/20.0));   
+        float prescale1 = 1/sqrtf(pow(10, bq[5].gain/20.0));      
+        
         for (uint16_t i=0;i<len;i++)
-        {
+        { 
           sbuffer0[i] = ((float) ((int16_t) (audio[i*4+1]<<8) + audio[i*4+0]))/32768;
           sbuffer1[i] = ((float) ((int16_t) (audio[i*4+3]<<8) + audio[i*4+2]))/32768;
+          if (dspFlow == dspfDynBass)
+          { sbuffer0[i] = prescale0 * sbuffer0[i];
+            sbuffer1[i] = prescale1 * sbuffer1[i];
+          }
           sbuffer2[i] = ((sbuffer0[i]/2) +  (sbuffer1[i]/2));
         }
 
@@ -96,6 +103,24 @@ static void dsp_i2s_task_handler(void *arg)
               }
               i2s_write_expand(0, (char*)audio, chunk_size,16,32, &bytes_written, portMAX_DELAY);
             }
+            break;
+          case dspfDynBass : 
+            { // Process Audio ch0 LOW SHELF FILTER 
+                dsps_biquad_f32_ae32(sbuffer0, sbufout0, len, bq[4].coeffs, bq[4].w); 
+              // Process Audio ch1 LOW SHELF FILTER   
+                dsps_biquad_f32_ae32(sbuffer1, sbufout1, len, bq[5].coeffs, bq[5].w); 
+            }  
+            int16_t valint[2];
+            for (uint16_t i=0; i<len; i++)
+            { valint[0] = (muteCH[0] == 1) ? (int16_t) 0 : (int16_t) (sbufout0[i]*32768);
+              valint[1] = (muteCH[1] == 1) ? (int16_t) 0 : (int16_t) (sbufout1[i]*32768);
+              dsp_audio[i*4+0] = (valint[0] & 0xff);
+              dsp_audio[i*4+1] = ((valint[0] & 0xff00)>>8);
+              dsp_audio[i*4+2] = (valint[1] & 0xff);
+              dsp_audio[i*4+3] = ((valint[1] & 0xff00)>>8);
+            }
+            i2s_write_expand(0, (char*)dsp_audio, chunk_size,16,32, &bytes_written, portMAX_DELAY);
+            
             break;
           case dspfBiamp :
             { // Process audio ch0 LOW PASS FILTER
@@ -168,16 +193,25 @@ size_t write_ringbuf(const uint8_t *data, size_t size)
 // Interface for cross over and level
 // Additional dynamic bass boost
 //
+void dsp_setup_dynbass(double freq, double gain, double quality)
+{
+  float dbf = freq/48000/2; 
+  bq[4] = (ptype_t) { LOWSHELF, dbf, gain, 0.707, NULL, NULL, {0,0,0,0,0}, {0, 0} } ;
+  bq[5] = (ptype_t) { LOWSHELF, dbf, gain, 0.707, NULL, NULL, {0,0,0,0,0}, {0, 0} } ;
+  dsps_biquad_gen_lowShelf_f32(bq[4].coeffs, bq[4].freq, bq[4].gain ,bq[4].q);
+  dsps_biquad_gen_lowShelf_f32(bq[5].coeffs, bq[5].freq, bq[5].gain ,bq[5].q);
+  for (uint8_t i = 0;i <=3 ;i++ )
+  {  printf("%.6f ",bq[4].coeffs[i]);
+  }
+  printf("\n");
+}
 
 void dsp_setup_flow(double freq) {
   float f = freq/48000/2;
-
   bq[0] = (ptype_t) { LPF, f, 0, 0.707, NULL, NULL, {0,0,0,0,0}, {0, 0} } ;
   bq[1] = (ptype_t) { LPF, f, 0, 0.707, NULL, NULL, {0,0,0,0,0}, {0, 0} } ;
   bq[2] = (ptype_t) { HPF, f, 0, 0.707, NULL, NULL, {0,0,0,0,0}, {0, 0} } ;
   bq[3] = (ptype_t) { HPF, f, 0, 0.707, NULL, NULL, {0,0,0,0,0}, {0, 0} } ;
-  bq[4] = (ptype_t) { HPF, f, 0, 0.707, NULL, NULL, {0,0,0,0,0}, {0, 0} } ;
-  bq[5] = (ptype_t) { HPF, f, 0, 0.707, NULL, NULL, {0,0,0,0,0}, {0, 0} } ;
 
   pnode_t * aflow = NULL;
   aflow = malloc(sizeof(pnode_t));
@@ -191,6 +225,8 @@ void dsp_setup_flow(double freq) {
               break;
       case HPF: dsps_biquad_gen_hpf_f32( bq[n].coeffs, bq[n].freq, bq[n].q );
               break;
+      case LOWSHELF: dsps_biquad_gen_lowShelf_f32(bq[n].coeffs, bq[n].freq, bq[n].gain ,bq[n].q );
+              break;
       default : break;
     }
     for (uint8_t i = 0;i <=3 ;i++ )
@@ -199,6 +235,7 @@ void dsp_setup_flow(double freq) {
     printf("\n");
  }
 }
+
 void dsp_set_xoverfreq(uint8_t freqh, uint8_t freql) {
   float freq =  (freqh*256 + freql)/4;
   ESP_LOGI("I2C","Freq %.0f",freq);
@@ -211,6 +248,26 @@ void dsp_set_xoverfreq(uint8_t freqh, uint8_t freql) {
         break;
       case HPF:
         dsps_biquad_gen_hpf_f32( bq[n].coeffs, bq[n].freq, bq[n].q );
+        break;
+      default : break;
+    }
+  }
+}
+
+void dsp_set_dynbass(uint8_t freqh, uint8_t freql, uint8_t gain, uint8_t quality) {
+  float freq =  (freqh*256 + freql)/4;
+  ESP_LOGI("I2C","Freq %.0f",freq);
+  float f = freq/48000.0/2.0;
+  float g = gain/4;  
+  float q = quality/64;
+  for ( int8_t n=4; n<=5; n++)
+  { bq[n].freq = f ;
+    bq[n].gain = g ;
+    bq[n].q    = q ; 
+
+    switch (bq[n].filtertype) {
+      case LOWSHELF:
+        dsps_biquad_gen_lowShelf_f32( bq[n].coeffs, bq[n].freq, bq[n].gain, bq[n].q );
         break;
       default : break;
     }
