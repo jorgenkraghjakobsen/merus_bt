@@ -24,13 +24,21 @@
 #include "freertos/queue.h"
 #include "esp_system.h"
 #include "esp_log.h"
+#include "esp_spp_api.h"
+
 #include "stdint.h"
 #include "protocol.h"
 #include "MerusAudio.h"
 #include "driver/i2s.h"
 #include "dsp_processor.h"
 
-extern enum dspFlows dspFlow;
+#include "MerusAudio.h"
+#include "ma120x0.h"
+
+extern xQueueHandle prot_queue; 
+extern int spp_handle;
+
+
 
 // Protcol format
 // Byte     0         1           2          3      4     ...
@@ -39,6 +47,11 @@ extern enum dspFlows dspFlow;
 enum audio_sources { SNAPCAST, RTPRX, BLUETOOTH, SIGNALGENERATOR };
 static const char TAG[] = "PROT";
 static uint8_t audio_source ;
+
+// DSP parameters 
+extern enum dspFlows dspFlow;
+extern uint32_t freqBT; 
+extern uint8_t gain; 
 extern uint8_t muteCH[4];
 
 void protocolHandlerTask(void *pvParameter)
@@ -108,6 +121,8 @@ void protocolHandlerTask(void *pvParameter)
                     //printf("i2c_write : \n");
                     break;
                  }
+                 case 2 : // block read .. 
+                      break;
                  case 3 :
                     {  uint8_t l = (*(msg+1)-7);
                        uint8_t *writebuf;
@@ -150,7 +165,6 @@ void protocolHandlerTask(void *pvParameter)
 
       case 4 : break;
       case 5 : break;
-               
       case 6 : //RTPrx
                switch (*(msg+2)) {
                    case 0: // Stop RX reciever
@@ -164,23 +178,51 @@ void protocolHandlerTask(void *pvParameter)
                break;
       case 7 : // DSP
                  switch (*(msg+2)) {
-
-
-                   case 0: // Bypass 0 or 1 or 2 
+                   case 0: // DSP Flow 
                            dspFlow = (int) *(msg+3);
                            break;
                    case 1: // Change Xover frequency
                            dsp_set_xoverfreq(*(msg+3),*(msg+4));
                            break;
-                   case 99: { uint8_t ch = *(msg+3);
-                              uint8_t state = *(msg+4);
-                              printf("Mute %d %d\n",ch,state);
+                   case 2: // Change dynBass frequency
+                           dsp_set_dynbassfreq(*(msg+3),*(msg+4));
+                           break;
+                   case 3: // Change dynBass gain 
+                           dsp_set_gain(*(msg+3));
+                           break;
+                   case 5: { uint8_t ch = *(msg+3);
+                             uint8_t state = *(msg+4);
+                             printf("Mute %d %d\n",ch,state);
                               if ( (ch<=1) & (state<=1) )
                               { muteCH[ch] = state;
                               }
                             }
                             break;
-
+                   case 100: // Sync UI interface 
+                            {
+                              uint8_t UI_sync_vector[15];
+                              uint8_t UI_sync_vol[4];   
+                              ma_read(0x20,1, (uint16_t) MA_vol_db_master__a, UI_sync_vol, 4 );
+                              UI_sync_vector[0] = 5;
+                              UI_sync_vector[1] = 4;
+                              UI_sync_vector[2] = 0;
+                              UI_sync_vector[3] = 9;
+                              UI_sync_vector[4] = UI_sync_vol[0];
+                              UI_sync_vector[5] = UI_sync_vol[2];
+                              UI_sync_vector[6] = UI_sync_vol[3];
+                              UI_sync_vector[7] = muteCH[0];
+                              UI_sync_vector[8] = muteCH[1];
+                              UI_sync_vector[9] = 0;
+                              UI_sync_vector[10] = dspFlow;
+                              UI_sync_vector[11] = (uint16_t)freqBT / 256; 
+                              UI_sync_vector[12] = (uint16_t)freqBT % 256;  
+                              UI_sync_vector[13] = gain;  
+                              if (spp_handle != 0)
+                              {  printf("BT tx\n");
+                                 esp_spp_write(spp_handle, 14, UI_sync_vector);
+                              }
+                            }
+                            break;         
                    default : break;
                }
                break;

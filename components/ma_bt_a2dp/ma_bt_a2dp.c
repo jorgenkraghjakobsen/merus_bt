@@ -4,6 +4,8 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
+
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "esp_system.h"
@@ -26,10 +28,13 @@
 static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param);
 uint32_t spp_handle = 0; 
 static const esp_spp_mode_t esp_spp_mode = ESP_SPP_MODE_CB;
+extern xQueueHandle prot_queue; 
 
-extern enum dspFlows dspFlow;
-extern uint8_t muteCH[4];
-uint32_t freqBT = 1000.0; 
+//extern enum dspFlows dspFlow;
+//extern uint8_t muteCH[4];
+//uint32_t freqBT = 1000.0; 
+//uint8_t gain = 0; 
+
 bool callMemReleaseOnBoot = true; /*!< Variable to control if mem.release must be called. */
 static char TAG[] = "ma_bt_a2dp"; /*!< Tag used with ESP_LOGx function. */
 
@@ -157,11 +162,20 @@ void ma_bt_start(void)
 
     /* Bluetooth device name, connection mode and profile set up */
     bt_app_work_dispatch(bt_av_hdl_stack_evt, BT_APP_EVT_STACK_UP, NULL, 0, NULL);
-
+    
+    #if (CONFIG_BT_SSP_ENABLED == true)
     /* Set default parameters for Secure Simple Pairing */
     esp_bt_sp_param_t param_type = ESP_BT_SP_IOCAP_MODE;
     esp_bt_io_cap_t iocap = ESP_BT_IO_CAP_IO;
     esp_bt_gap_set_security_param(param_type, &iocap, sizeof(uint8_t));
+    #endif        
+    esp_bt_pin_type_t pin_type = ESP_BT_PIN_TYPE_FIXED;
+    esp_bt_pin_code_t pin_code;
+    pin_code[0] = '1';
+    pin_code[1] = '2';
+    pin_code[2] = '3';
+    pin_code[3] = '4';
+    esp_bt_gap_set_pin(pin_type, 4, pin_code);
 }
 
 void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
@@ -200,7 +214,7 @@ void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
 
 #define SPP_TAG "SPP_TAG"
 static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
-{ esp_err_t err;
+{ //esp_err_t err;
   switch (event) {
     case ESP_SPP_INIT_EVT:
            ESP_LOGI(SPP_TAG, "ESP_SPP_INIT_EVT");
@@ -224,7 +238,16 @@ static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
            ESP_LOGI(SPP_TAG, "ESP_SPP_CL_INIT_EVT");
            break;
     case ESP_SPP_DATA_IND_EVT:
-           ESP_LOGI(SPP_TAG, "ESP_SPP_DATA_IND_EVT len=%d handle=%d",param->data_ind.len, param->data_ind.handle);
+           { //ESP_LOGI(SPP_TAG, "ESP_SPP_DATA_IND_EVT len=%d handle=%d",param->data_ind.len, param->data_ind.handle);
+             uint8_t *msg = malloc(param->data_ind.len+2); 
+             *(msg+0) = param->data_ind.data[0];
+             *(msg+1) = param->data_ind.len; 
+             for (int i=0;i<param->data_ind.len;i++) 
+             { *(msg+2+i) = param->data_ind.data[1+i]; 
+             }
+           // memcpy(*(msg+2), &param->data_ind.data[1], param->data_ind.len); 
+             xQueueSend(prot_queue, &msg, portMAX_DELAY); 
+           /*
            if (param->data_ind.data[0] == 1) {
               if (param->data_ind.data[1] == 1) {
                 ma_write_byte(0x20,1,(uint16_t) param->data_ind.data[2],param->data_ind.data[3]);  
@@ -235,39 +258,46 @@ static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
                  freqBT = param->data_ind.data[3]*256+param->data_ind.data[4]; 
                  printf("%d\n",freqBT/4);
                  dsp_set_xoverfreq((uint8_t) param->data_ind.data[3], (uint8_t) param->data_ind.data[4]);  
-              }  
-           } 
-           if (param->data_ind.data[1] == 2) {  // Mute CH0 or CH1  
-                muteCH[param->data_ind.data[2]] = param->data_ind.data[3];  
-           }     
-           if (param->data_ind.data[1] == 3) {  // Set DSPmode   
-                dspFlow = param->data_ind.data[2];  
-                printf("DSP mode : %d \n",dspFlow);    
-           }     
-           if (param->data_ind.data[1] == 4) {  // Sync UI elements   
-              uint8_t UI_sync_vector[15];
-              uint8_t UI_sync_vol[4];   
-              ma_read(0x20,1, (uint16_t) MA_vol_db_master__a, UI_sync_vol, 4 );
-              UI_sync_vector[0] = 5;
-              UI_sync_vector[1] = 4;
-              UI_sync_vector[2] = 0;
-              UI_sync_vector[3] = 9;
-              UI_sync_vector[4] = UI_sync_vol[0];
-              UI_sync_vector[5] = UI_sync_vol[2];
-              UI_sync_vector[6] = UI_sync_vol[3];
-              UI_sync_vector[7] = muteCH[0];
-              UI_sync_vector[8] = muteCH[1];
-              UI_sync_vector[9] = 0;
-              UI_sync_vector[10] = dspFlow;
-              UI_sync_vector[11] = (uint16_t)freqBT / 256; 
-              UI_sync_vector[12] = (uint16_t)freqBT % 256;  
-
-              if (spp_handle != 0)
-              {   printf("BT tx\n");
-                  esp_spp_write(spp_handle, 13, UI_sync_vector);
+              }
+              if (param->data_ind.data[1] == 3) {
+                 uint8_t gain = param->data_ind.data[3]; 
+                 printf("%.2f\n",(double) gain/4);
+                 dsp_set_gain((uint8_t) param->data_ind.data[3]);  
+              }
+              if (param->data_ind.data[1] == 2) {  // Mute CH0 or CH1  
+                 muteCH[param->data_ind.data[2]] = param->data_ind.data[3];  
+              }     
+              if (param->data_ind.data[1] == 0) {  // Set DSPmode   
+                 dspFlow = param->data_ind.data[2];  
+                 printf("DSP mode : %d \n",dspFlow);    
+              }     
+              if (param->data_ind.data[1] == 4) {  // Sync UI elements   
+                uint8_t UI_sync_vector[15];
+                uint8_t UI_sync_vol[4];   
+                ma_read(0x20,1, (uint16_t) MA_vol_db_master__a, UI_sync_vol, 4 );
+                UI_sync_vector[0] = 5;
+                UI_sync_vector[1] = 4;
+                UI_sync_vector[2] = 0;
+                UI_sync_vector[3] = 9;
+                UI_sync_vector[4] = UI_sync_vol[0];
+                UI_sync_vector[5] = UI_sync_vol[2];
+                UI_sync_vector[6] = UI_sync_vol[3];
+                UI_sync_vector[7] = muteCH[0];
+                UI_sync_vector[8] = muteCH[1];
+                UI_sync_vector[9] = 0;
+                UI_sync_vector[10] = dspFlow;
+                UI_sync_vector[11] = (uint16_t)freqBT / 256; 
+                UI_sync_vector[12] = (uint16_t)freqBT % 256;  
+                UI_sync_vector[13] = gain;  
+                if (spp_handle != 0)
+                {   printf("BT tx\n");
+                    esp_spp_write(spp_handle, 14, UI_sync_vector);
+                }
               }
             }
-            esp_log_buffer_hex("",param->data_ind.data,param->data_ind.len);
+            */
+            //esp_log_buffer_hex("",param->data_ind.data,param->data_ind.len);
+            } 
             break;
     case ESP_SPP_CONG_EVT:
             ESP_LOGI(SPP_TAG, "ESP_SPP_CONG_EVT");

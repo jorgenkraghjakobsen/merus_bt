@@ -14,9 +14,13 @@
 static xTaskHandle s_dsp_i2s_task_handle = NULL;
 static RingbufHandle_t s_ringbuf_i2s = NULL;
 extern xQueueHandle i2s_queue;
-float samplerate = 44100.0;  
-extern enum dspFlows dspFlow;
+extern unsigned samplerate ;  
 
+
+enum dspFlows dspFlow;
+uint32_t freqBT = 1000; 
+uint32_t dynbassFreq = 400;  
+uint8_t gain = 0;   // gain db /4 
 uint8_t muteCH[4] = {0};
 ptype_t bq[6];
 
@@ -24,7 +28,7 @@ void setup_dsp_i2s(uint32_t sample_rate)
 {
   i2s_config_t i2s_config0 = {
     .mode = I2S_MODE_MASTER | I2S_MODE_TX,                                    // Only TX
-    .sample_rate = 44100,
+    .sample_rate = samplerate,
     .bits_per_sample = 32,
     .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,                             //2-channels
     .communication_format = I2S_COMM_FORMAT_I2S, 
@@ -63,7 +67,9 @@ static void dsp_i2s_task_handler(void *arg)
   float sbufout1[1024];
   float sbufout2[1024];
   float sbuftmp0[1024];
-
+  float chmax[2] = {0}; 
+  float chmaxpost[2] = {0}; 
+  
   uint8_t dsp_audio[4*1024];
   uint8_t dsp_audio1[4*1024];
 
@@ -75,13 +81,17 @@ static void dsp_i2s_task_handler(void *arg)
     audio = (uint8_t *)xRingbufferReceiveUpTo(s_ringbuf_i2s, &chunk_size, (portTickType)portMAX_DELAY,960);
     if (chunk_size !=0 ){
         int16_t len = chunk_size/4;
-        if (cnt%200 == 0)
-        { ESP_LOGI("I2S", "Chunk :%d",chunk_size);
+         uint8_t *data_ptr = audio;
+        float prescale0 = 0.25; //1/sqrtf(pow(10, bq[4].gain/20.0));   
+        float prescale1 = 0.25; //1/sqrtf(pow(10, bq[5].gain/20.0));      
+        if ((cnt%200 == 0) || (chmaxpost[0] > 0.9) )
+        { ESP_LOGI("I2S", "Chunk :%d, %f, %f, %f , %f, %f ",chunk_size,prescale0, chmax[0], chmax[1], chmaxpost[0],chmaxpost[1]);
+          chmax[0] = 0;
+          chmax[1] = 0;
+          chmaxpost[0] = 0; 
+          chmaxpost[1] = 0;
         }
-        uint8_t *data_ptr = audio;
-        float prescale0 = 1/sqrtf(pow(10, bq[4].gain/20.0));   
-        float prescale1 = 1/sqrtf(pow(10, bq[5].gain/20.0));      
-        
+       
         for (uint16_t i=0;i<len;i++)
         { 
           sbuffer0[i] = ((float) ((int16_t) (audio[i*4+1]<<8) + audio[i*4+0]))/32768;
@@ -89,8 +99,10 @@ static void dsp_i2s_task_handler(void *arg)
           if (dspFlow == dspfDynBass)
           { sbuffer0[i] = prescale0 * sbuffer0[i];
             sbuffer1[i] = prescale1 * sbuffer1[i];
-          }
+          } 
           sbuffer2[i] = ((sbuffer0[i]/2) +  (sbuffer1[i]/2));
+          chmax[0] = (sbuffer0[i]>chmax[0])?sbuffer0[i]:chmax[0];
+          chmax[1] = (sbuffer1[i]>chmax[1])?sbuffer1[i]:chmax[1];
         }
 
         switch (dspFlow) {
@@ -112,7 +124,11 @@ static void dsp_i2s_task_handler(void *arg)
             }  
             int16_t valint[2];
             for (uint16_t i=0; i<len; i++)
-            { valint[0] = (muteCH[0] == 1) ? (int16_t) 0 : (int16_t) (sbufout0[i]*32768);
+            { 
+              chmaxpost[0] = (sbufout0[i]>chmax[0])?sbufout0[i]:chmaxpost[0];
+              chmaxpost[1] = (sbufout1[i]>chmax[1])?sbufout1[i]:chmaxpost[1];
+     
+              valint[0] = (muteCH[0] == 1) ? (int16_t) 0 : (int16_t) (sbufout0[i]*32768);
               valint[1] = (muteCH[1] == 1) ? (int16_t) 0 : (int16_t) (sbufout1[i]*32768);
               dsp_audio[i*4+0] = (valint[0] & 0xff);
               dsp_audio[i*4+1] = ((valint[0] & 0xff00)>>8);
@@ -194,20 +210,21 @@ size_t write_ringbuf(const uint8_t *data, size_t size)
 // Additional dynamic bass boost
 //
 void dsp_setup_dynbass(double freq, double gain, double quality)
-{
-  float dbf = freq/48000/2; 
+{  
+  float dbf = freq/samplerate; 
+  printf("Nomalized frequency : %d %f %.9f \n",samplerate, freq, dbf) ;
   bq[4] = (ptype_t) { LOWSHELF, dbf, gain, 0.707, NULL, NULL, {0,0,0,0,0}, {0, 0} } ;
   bq[5] = (ptype_t) { LOWSHELF, dbf, gain, 0.707, NULL, NULL, {0,0,0,0,0}, {0, 0} } ;
   dsps_biquad_gen_lowShelf_f32(bq[4].coeffs, bq[4].freq, bq[4].gain ,bq[4].q);
   dsps_biquad_gen_lowShelf_f32(bq[5].coeffs, bq[5].freq, bq[5].gain ,bq[5].q);
-  for (uint8_t i = 0;i <=3 ;i++ )
+  for (uint8_t i = 0;i <=4 ;i++ )
   {  printf("%.6f ",bq[4].coeffs[i]);
   }
   printf("\n");
 }
 
 void dsp_setup_flow(double freq) {
-  float f = freq/48000/2;
+  float f = freq/samplerate;
   bq[0] = (ptype_t) { LPF, f, 0, 0.707, NULL, NULL, {0,0,0,0,0}, {0, 0} } ;
   bq[1] = (ptype_t) { LPF, f, 0, 0.707, NULL, NULL, {0,0,0,0,0}, {0, 0} } ;
   bq[2] = (ptype_t) { HPF, f, 0, 0.707, NULL, NULL, {0,0,0,0,0}, {0, 0} } ;
@@ -229,7 +246,7 @@ void dsp_setup_flow(double freq) {
               break;
       default : break;
     }
-    for (uint8_t i = 0;i <=3 ;i++ )
+    for (uint8_t i = 0;i <=4 ;i++ )
     {  printf("%.6f ",bq[n].coeffs[i]);
     }
     printf("\n");
@@ -239,7 +256,7 @@ void dsp_setup_flow(double freq) {
 void dsp_set_xoverfreq(uint8_t freqh, uint8_t freql) {
   float freq =  (freqh*256 + freql)/4;
   ESP_LOGI("I2C","Freq %.0f",freq);
-  float f = freq/48000.0/2.0;
+  float f = freq/samplerate;
   for ( int8_t n=0; n<=5; n++)
   { bq[n].freq = f ;
     switch (bq[n].filtertype) {
@@ -254,10 +271,38 @@ void dsp_set_xoverfreq(uint8_t freqh, uint8_t freql) {
   }
 }
 
+
+void dsp_set_gain(uint8_t gain) {
+  float g = gain/4;
+  ESP_LOGI("I2C","Gain %.2f",g);
+  for ( int8_t n=4; n<=5; n++)
+  { bq[n].gain = g;
+    switch (bq[n].filtertype) {
+      case LOWSHELF:
+        dsps_biquad_gen_lowShelf_f32( bq[n].coeffs, bq[n].freq, bq[n].gain, bq[n].q );
+        break;
+      default : break;
+    }
+  }
+}
+void dsp_set_dynbassFreq(uint8_t freqh, uint8_t freql) {
+  float freq = (freqh*256 + freql)/4;
+  ESP_LOGI("I2C","Freq %.2f",freq);
+  for ( int8_t n=4; n<=5; n++)
+  { bq[n].freq = freq;
+    switch (bq[n].filtertype) {
+      case LOWSHELF:
+        dsps_biquad_gen_lowShelf_f32( bq[n].coeffs, bq[n].freq, bq[n].gain, bq[n].q );
+        break;
+      default : break;
+    }
+  }
+}
+
 void dsp_set_dynbass(uint8_t freqh, uint8_t freql, uint8_t gain, uint8_t quality) {
   float freq =  (freqh*256 + freql)/4;
   ESP_LOGI("I2C","Freq %.0f",freq);
-  float f = freq/48000.0/2.0;
+  float f = freq/samplerate;
   float g = gain/4;  
   float q = quality/64;
   for ( int8_t n=4; n<=5; n++)

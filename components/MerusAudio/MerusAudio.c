@@ -76,7 +76,7 @@ void setup_ma120x0()
    printf("Hardware version: 0x%02x\n",res);
 
    ma_write_byte(MA120X0_ADDR,1,MA_i2s_format__a,8);          // Set i2s left justified, set audio_proc_enable
-   ma_write_byte(MA120X0_ADDR,1,MA_vol_db_master__a,0x40);    // Set vol_db_master
+   ma_write_byte(MA120X0_ADDR,1,MA_vol_db_master__a,0x28);    // Set vol_db_master
 
    res = ma_read_byte(MA120X0_ADDR,1,MA_error__a);
    printf("Errors : 0x%02x\n",res);

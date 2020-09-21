@@ -41,7 +41,8 @@ static const char *TAG = "Main";
 xQueueHandle prot_queue;
 xQueueHandle i2s_queue;
 
-enum dspFlows dspFlow;
+extern enum dspFlows dspFlow;
+unsigned samplerate = 44100;
 extern uint32_t spp_handle; 
 
 void app_main(void)
@@ -55,11 +56,11 @@ void app_main(void)
     
     setup_ma120x0(); 
     
-    dsp_i2s_task_init(44100);
+    dsp_i2s_task_init(samplerate);
 
     dspFlow = dspfDynBass; //dspfBiamp;
     dsp_setup_flow(200.0);
-    dsp_setup_dynbass(200.0, 9.0, 0.707);
+    dsp_setup_dynbass(300.0, 6, 0.707);
 
     prot_queue = xQueueCreate(10, sizeof(uint8_t *) );
     xTaskCreatePinnedToCore(protocolHandlerTask, "prot_handler_task", 2*1024, NULL, 5, NULL,0);

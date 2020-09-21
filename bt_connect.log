@@ -1,0 +1,68 @@
+Android P10 - absolute audio enable
+I (38051) BT_AV: A2DP connection state: Connected, [14:5f:94:fc:f4:c9]
+I (38191) RCCT: AVRC conn_state evt: state 1, [14:5f:94:fc:f4:c9]
+I (38191) RCCT: AVRC remote features 259, TG features d1
+I (38231) RCCT: remote rn_cap: count 8, bitmask 0x1f26
+I (38311) RCTG: AVRC register event notification: 13, param: 0x0
+I (38911) RCCT: AVRC metadata rsp: attribute id 0x1, 
+I (38911) RCCT: AVRC metadata rsp: attribute id 0x2, 
+I (38911) RCCT: AVRC metadata rsp: attribute id 0x4, UNKNOWN
+I (38911) RCCT: AVRC metadata rsp: attribute id 0x20, 
+I (38921) RCCT: AVRC event notification: 2
+I (38931) RCCT: AVRC event notification: 1
+I (38931) BT_AV: Playback status changed: 0x2
+I (38971) RCCT: AVRC metadata rsp: attribute id 0x1, 
+I (38971) RCCT: AVRC metadata rsp: attribute id 0x2, 
+I (38971) RCCT: AVRC metadata rsp: attribute id 0x4, UNKNOWN
+I (38981) RCCT: AVRC metadata rsp: attribute id 0x20, 
+
+Android P10 - absolute audio disable 
+I (1030951) BT_AV: A2DP connection state: Connecting, [14:5f:94:fc:f4:c9]
+I (1031011) BT_AV: A2DP audio stream configuration, codec type 0
+I (1031081) I2S: APLL: Req RATE: 44100, real rate: 44099.988, BITS: 32, CLKM: 1, BCK_M: 8, MCLK: 22579194.000, SCLK: 2822399.250000, diva: 1, divb: 0
+I (1031081) BT_AV: Configure audio player 21-15-2-35
+I (1031091) BT_AV: Audio player configured, sample rate=44100
+W (1031191) BT_APPL: new conn_srvc id:19, app_id:0
+I (1031191) BT_AV: A2DP connection state: Connected, [14:5f:94:fc:f4:c9]
+I (1031381) RCCT: AVRC conn_state evt: state 1, [14:5f:94:fc:f4:c9]
+I (1031381) RCCT: AVRC remote features 259, TG features d1
+I (1031421) RCCT: remote rn_cap: count 8, bitmask 0x1f26
+I (1031571) RCCT: AVRC metadata rsp: attribute id 0x1, 
+I (1031571) RCCT: AVRC metadata rsp: attribute id 0x2, 
+I (1031571) RCCT: AVRC metadata rsp: attribute id 0x4, UNKNOWN
+I (1031571) RCCT: AVRC metadata rsp: attribute id 0x20, 
+I (1031581) RCCT: AVRC event notification: 1
+I (1031581) BT_AV: Playback status changed: 0x2
+
+
+
+
+Bluetooth Linux Ubuntu/Lenovo T460s 
+I (115471) BT_AV: A2DP connection state: Disconnected, [14:5f:94:fc:f4:c9]
+I (115481) RCCT: AVRC conn_state evt: state 0, [00:00:00:00:00:00]
+I (264051) BT_AV: ESP_BT_GAP_CFM_REQ_EVT Please compare the numeric value: 735772
+I (271421) BT_AV: authentication success: t460s
+I (271431) BT_AV: 44 85 00 38 29 bb 
+E (271541) BT_APPL: bta_av_rc_create ACP handle exist for shdl:0
+I (271551) BT_AV: A2DP connection state: Connecting, [44:85:00:38:29:bb]
+I (271571) BT_AV: A2DP audio stream configuration, codec type 0
+I (271641) I2S: APLL: Req RATE: 44100, real rate: 44099.988, BITS: 32, CLKM: 1, BCK_M: 8, MCLK: 22579194.000, SCLK: 2822399.250000, diva: 1, divb: 0
+I (271641) BT_AV: Configure audio player 21-15-2-35
+I (271651) BT_AV: Audio player configured, sample rate=44100
+W (271701) BT_APPL: new conn_srvc id:19, app_id:0
+I (271731) BT_LOG: bta_av_link_role_ok hndl:x41 role:1 conn_audio:x1 bits:1 features:x824b
+
+W (271731) BT_APPL: new conn_srvc id:19, app_id:1
+I (271761) BT_AV: A2DP connection state: Connected, [44:85:00:38:29:bb]
+I (271761) BT_AV: A2DP audio state: Started
+I (271761) RCTG: AVRC conn_state evt: state 1, [44:85:00:38:29:bb]
+I (271811) RCTG: AVRC register event notification: 13, param: 0x0
+I (271901) RCCT: AVRC conn_state evt: state 1, [44:85:00:38:29:bb]
+I (271901) RCCT: AVRC remote features 25b, TG features 5f
+I (271901) RCTG: AVRC remote features 25b, CT features 4f
+I (271931) RCCT: remote rn_cap: count 8, bitmask 0x2d1e
+I (271991) RCCT: AVRC metadata rsp: attribute id 0x1, 
+I (272001) RCCT: AVRC metadata rsp: attribute id 0x2, 
+I (272001) RCCT: AVRC metadata rsp: attribute id 0x4, 
+I (272001) RCCT: AVRC metadata rsp: attribute id 0x20, 
+I (272681) I2S: Chunk :256

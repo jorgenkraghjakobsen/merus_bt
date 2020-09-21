@@ -33,5 +33,5 @@ typedef struct pnode {
 void dsp_setup_flow(double freq);
 void dsp_setup_dynbass(double freq,double gain, double quality);
 void dsp_set_xoverfreq(uint8_t, uint8_t); 
-
+void dsp_set_gain(uint8_t);
 #endif /* _DSP_PROCESSOR_H_  */
