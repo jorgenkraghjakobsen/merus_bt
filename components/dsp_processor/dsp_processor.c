@@ -13,6 +13,8 @@
 
 static xTaskHandle s_dsp_i2s_task_handle = NULL;
 static RingbufHandle_t s_ringbuf_i2s = NULL;
+static RingbufHandle_t sc_ringbuf_i2s = NULL; 
+
 extern xQueueHandle i2s_queue;
 extern unsigned samplerate ;  
 
@@ -60,6 +62,7 @@ void setup_dsp_i2s(uint32_t sample_rate)
 static void dsp_i2s_task_handler(void *arg)
 { uint32_t cnt = 0;
   uint8_t *audio = NULL;
+  
   float sbuffer0[1024];
   float sbuffer1[1024];
   float sbuffer2[1024];
@@ -75,13 +78,16 @@ static void dsp_i2s_task_handler(void *arg)
 
   size_t chunk_size = 0;
   size_t bytes_written = 0;
+  
+  size_t ch_chunk_size = 0;
+  uint8_t *sideCH = NULL; 
 
   for (;;) {
     cnt++;
     audio = (uint8_t *)xRingbufferReceiveUpTo(s_ringbuf_i2s, &chunk_size, (portTickType)portMAX_DELAY,960);
     if (chunk_size !=0 ){
         int16_t len = chunk_size/4;
-         uint8_t *data_ptr = audio;
+        uint8_t *data_ptr = audio;
         float prescale0 = 0.25; //1/sqrtf(pow(10, bq[4].gain/20.0));   
         float prescale1 = 0.25; //1/sqrtf(pow(10, bq[5].gain/20.0));      
         if ((cnt%200 == 0) || (chmaxpost[0] > 0.9) )
@@ -91,7 +97,8 @@ static void dsp_i2s_task_handler(void *arg)
           chmaxpost[0] = 0; 
           chmaxpost[1] = 0;
         }
-       
+        sideCH = (uint8_t *)xRingbufferReceiveUpTo(sc_ringbuf_i2s, &ch_chunk_size, 0, chunk_size );
+        assert((ch_chunk_size == 0) || (ch_chunk_size == chunk_size));    
         for (uint16_t i=0;i<len;i++)
         { 
           sbuffer0[i] = ((float) ((int16_t) (audio[i*4+1]<<8) + audio[i*4+0]))/32768;
@@ -170,8 +177,10 @@ static void dsp_i2s_task_handler(void *arg)
 
 void dsp_i2s_task_init(uint32_t sample_rate)
 { setup_dsp_i2s(sample_rate);
-  s_ringbuf_i2s = xRingbufferCreate(8*1024,RINGBUF_TYPE_BYTEBUF);  
+  s_ringbuf_i2s = xRingbufferCreate(8*1024,RINGBUF_TYPE_BYTEBUF);
   if (s_ringbuf_i2s == NULL) { return; }
+  sc_ringbuf_i2s = xRingbufferCreate(8*1024,RINGBUF_TYPE_BYTEBUF);
+  if (sc_ringbuf_i2s == NULL) { return; }
   xTaskCreate(dsp_i2s_task_handler, "DSP_I2S", 48*1024, NULL, 7, &s_dsp_i2s_task_handle);
 }
 
@@ -184,11 +193,21 @@ void dsp_i2s_task_deninit(void)
       vRingbufferDelete(s_ringbuf_i2s);
       s_ringbuf_i2s = NULL;
   }
+  if (sc_ringbuf_i2s) {
+      vRingbufferDelete(sc_ringbuf_i2s);
+      sc_ringbuf_i2s = NULL;
+  }
+
 }
 
 size_t write_ringbuf(const uint8_t *data, size_t size)
 {
    BaseType_t done = xRingbufferSend(s_ringbuf_i2s, (void *)data, size, (portTickType)portMAX_DELAY);
+   return (done)?size:0;
+}
+size_t write_sidechannel(const uint8_t *data, size_t size)
+{
+   BaseType_t done = xRingbufferSend(sc_ringbuf_i2s, (void *)data, size, (portTickType)portMAX_DELAY);
    return (done)?size:0;
 }
 
@@ -285,7 +304,7 @@ void dsp_set_gain(uint8_t gain) {
     }
   }
 }
-void dsp_set_dynbassFreq(uint8_t freqh, uint8_t freql) {
+void dsp_set_dynbassfreq(uint8_t freqh, uint8_t freql) {
   float freq = (freqh*256 + freql)/4;
   ESP_LOGI("I2C","Freq %.2f",freq);
   for ( int8_t n=4; n<=5; n++)
