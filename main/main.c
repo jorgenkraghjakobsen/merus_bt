@@ -43,6 +43,8 @@ static const char *TAG = "Main";
 xQueueHandle prot_queue;
 xQueueHandle i2s_queue;
 
+led_strip_t *strip;
+
 extern enum dspFlows dspFlow;
 unsigned samplerate = 44100;
 extern uint32_t spp_handle; 
@@ -62,7 +64,7 @@ void app_main(void)
     ESP_ERROR_CHECK(rmt_driver_install(config.channel, 0, 0));
     printf("Done\n");
     led_strip_config_t strip_config = LED_STRIP_DEFAULT_CONFIG(12, (led_strip_dev_t)config.channel);
-    led_strip_t *strip = led_strip_new_rmt_ws2812(&strip_config);
+    strip = led_strip_new_rmt_ws2812(&strip_config);
     if (!strip) {
         ESP_LOGE(TAG, "install WS2812 driver failed");
     }
@@ -93,14 +95,7 @@ void app_main(void)
         }
       
        vTaskDelay(pdMS_TO_TICKS(200));
-      
-      if ((n%5) == 0)
-      {  
-         strip->set_pixel(strip, n%12, 128, n%255 , 0);
-         strip->refresh(strip, 100);
-
-      } 
-      n++; 
+       n++; 
       } 
    }
 }

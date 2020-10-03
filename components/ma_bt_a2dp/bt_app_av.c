@@ -27,6 +27,9 @@
 
 #include "sys/lock.h"
 
+#include "led_strip.h"
+extern led_strip_t *strip;
+
 #include "MerusAudio.h"
 #include "ma120x0.h"
 // AVRCP used transaction label
@@ -322,6 +325,12 @@ static void volume_set_by_controller(uint8_t volume)
     _lock_release(&s_volume_lock);
     printf("Volume : %d ", volume);
     ma_write_byte(0x20,1,MA_vol_db_master__a,0x20+127-volume);
+    
+    strip->clear(strip,100);
+    for (int i = 0; i< volume/10; i++)
+    {  strip->set_pixel(strip, i, 128 , 0, 0); 
+    }
+    strip->refresh(strip, 100);
 }
 
 static void volume_set_by_local_host(uint8_t volume)
