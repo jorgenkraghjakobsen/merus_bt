@@ -15,7 +15,6 @@
 #include "driver/i2c.h"
 
 #include "MerusAudio.h"
-
 #include "ma120x0.h"
 
 

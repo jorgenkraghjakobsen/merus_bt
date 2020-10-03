@@ -198,6 +198,9 @@ void protocolHandlerTask(void *pvParameter)
                               }
                             }
                             break;
+                   case 8: { //sideCH_play(1); 
+                       
+                           }         
                    case 100: // Sync UI interface 
                             {
                               uint8_t UI_sync_vector[15];

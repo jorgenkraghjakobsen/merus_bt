@@ -25,6 +25,8 @@
 #include "driver/gpio.h"
 #include "sdkconfig.h"
 
+#include "driver/rmt.h"
+#include "led_strip.h"
 
 #include "MerusAudio.h"
 #include "ma120x0.h"
@@ -51,7 +53,22 @@ void app_main(void)
       ESP_ERROR_CHECK(nvs_flash_erase());
       ret = nvs_flash_init();
     }
-   
+    
+    printf("Setup pixel ring\n");
+    rmt_config_t config = RMT_DEFAULT_CONFIG_TX(18,RMT_CHANNEL_0);
+    // set counter clock to 40MHz
+    config.clk_div = 2;
+    ESP_ERROR_CHECK(rmt_config(&config));
+    ESP_ERROR_CHECK(rmt_driver_install(config.channel, 0, 0));
+    printf("Done\n");
+    led_strip_config_t strip_config = LED_STRIP_DEFAULT_CONFIG(12, (led_strip_dev_t)config.channel);
+    led_strip_t *strip = led_strip_new_rmt_ws2812(&strip_config);
+    if (!strip) {
+        ESP_LOGE(TAG, "install WS2812 driver failed");
+    }
+    ESP_ERROR_CHECK(strip->clear(strip, 100));
+    ESP_ERROR_CHECK(strip->set_pixel(strip, 0, 128 , 0, 0));
+    ESP_ERROR_CHECK(strip->refresh(strip, 100));
     ma_bt_start();
     
     setup_ma120x0(); 
@@ -64,17 +81,26 @@ void app_main(void)
 
     prot_queue = xQueueCreate(10, sizeof(uint8_t *) );
     xTaskCreatePinnedToCore(protocolHandlerTask, "prot_handler_task", 2*1024, NULL, 5, NULL,0);
-    
+    uint32_t n = 0; 
     while(1)
     { uint8_t amp_state[8];
       for (;;)   // read back 96 to 102 (7 bytes)
-      { ma_read(0x20,1, MA_dcu_mon0__PM_mon__a, amp_state, 7); 
+      { 
+        ma_read(0x20,1, MA_dcu_mon0__PM_mon__a, amp_state, 7); 
         if (spp_handle != 0)
         {   //printf("BT tx\n");
             esp_spp_write(spp_handle, 7, amp_state);
         }
       
        vTaskDelay(pdMS_TO_TICKS(200));
-      }
+      
+      if ((n%5) == 0)
+      {  
+         strip->set_pixel(strip, n%12, 128, n%255 , 0);
+         strip->refresh(strip, 100);
+
+      } 
+      n++; 
+      } 
    }
 }

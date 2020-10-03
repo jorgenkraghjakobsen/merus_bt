@@ -81,7 +81,7 @@ static void dsp_i2s_task_handler(void *arg)
   
   size_t ch_chunk_size = 0;
   uint8_t *sideCH = NULL; 
-
+  uint32_t sideCH_index = 0;
   for (;;) {
     cnt++;
     audio = (uint8_t *)xRingbufferReceiveUpTo(s_ringbuf_i2s, &chunk_size, (portTickType)portMAX_DELAY,960);
@@ -99,10 +99,24 @@ static void dsp_i2s_task_handler(void *arg)
         }
         sideCH = (uint8_t *)xRingbufferReceiveUpTo(sc_ringbuf_i2s, &ch_chunk_size, 0, chunk_size );
         assert((ch_chunk_size == 0) || (ch_chunk_size == chunk_size));    
+        if (ch_chunk_size == 0) 
+        { sideCH_index = 0; } 
+        else 
+        { sideCH_index++; }
+        
         for (uint16_t i=0;i<len;i++)
-        { 
-          sbuffer0[i] = ((float) ((int16_t) (audio[i*4+1]<<8) + audio[i*4+0]))/32768;
-          sbuffer1[i] = ((float) ((int16_t) (audio[i*4+3]<<8) + audio[i*4+2]))/32768;
+        { if (sideCH_index > 0) 
+          { 
+            sbuffer0[i] = ((float) ((int16_t) (audio[i*4+1]<<8)  + audio[i*4+0]) + 
+                                   ((int16_t) (sideCH[i*4+1]<<8) + sideCH[i*4+0])  )/32768;
+            sbuffer1[i] = ((float) ((int16_t) (audio[i*4+3]<<8) + audio[i*4+2]) + 
+                                   ((int16_t) (sideCH[i*4+3]<<8) + sideCH[i*4+2])  )/32768; 
+          } 
+          else 
+          {       
+            sbuffer0[i] = ((float) ((int16_t) (audio[i*4+1]<<8) + audio[i*4+0]))/32768;
+            sbuffer1[i] = ((float) ((int16_t) (audio[i*4+3]<<8) + audio[i*4+2]))/32768;
+          }
           if (dspFlow == dspfDynBass)
           { sbuffer0[i] = prescale0 * sbuffer0[i];
             sbuffer1[i] = prescale1 * sbuffer1[i];
